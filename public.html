@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GTEX RAFFLE</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      margin-top: 30px;
+    }
+
+    #wheelCanvas {
+      border: 8px solid #333;
+      border-radius: 50%;
+      margin-top: 20px;
+      transition: transform 4s ease-out;
+    }
+
+    #spinBtn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 18px;
+    }
+
+    #result {
+      margin-top: 30px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    #pointer {
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 30px solid red;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>GTEX RAFFLE GAME!</h1>
+  <div id="pointer"></div>
+  <canvas id="wheelCanvas" width="400" height="400"></canvas>
+  <button id="spinBtn">Spin</button>
+  <div id="result"></div>
+
+  <script>
+    const names = [
+      "Alice", "Bob", "Charlie", "Diana", "Edward",
+      "Fiona", "George", "Hannah", "Isaac", "Julia",
+      "Kevin", "Luna", "Mike", "Nina", "Oscar",
+      "Paula", "Quinn", "Rita", "Sam", "Tina"
+    ];
+
+    const canvas = document.getElementById("wheelCanvas");
+    const ctx = canvas.getContext("2d");
+    const spinBtn = document.getElementById("spinBtn");
+    const result = document.getElementById("result");
+    const redirectUrl = "https://www.facebook.com/gensantex"; // Change this to your target URL
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 180;
+    const anglePerSlice = (2 * Math.PI) / names.length;
+    let hasSpun = false;
+
+    // Draw the pizza-style wheel
+    function drawWheel() {
+      for (let i = 0; i < names.length; i++) {
+        const startAngle = i * anglePerSlice;
+        const endAngle = startAngle + anglePerSlice;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.fillStyle = i % 2 === 0 ? '#f39c12' : '#e67e22';
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(startAngle + anglePerSlice / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px Arial";
+        ctx.fillText(names[i], radius - 10, 4);
+        ctx.restore();
+      }
+    }
+
+    drawWheel();
+
+    function spinWheel() {
+      if (localStorage.getItem("hasSpun") === "true") return;
+
+      hasSpun = true;
+      spinBtn.disabled = true;
+      localStorage.setItem("hasSpun", "true");
+
+      const randomIndex = Math.floor(Math.random() * names.length);
+      const stopAngle = 360 * 5 + (360 - (randomIndex * 360 / names.length + 360 / names.length / 2));
+      canvas.style.transform = `rotate(${stopAngle}deg)`;
+
+      setTimeout(() => {
+        result.innerText = `🎉 You got: ${names[randomIndex]}!`;
+      }, 4000);
+
+      // Start 10-second timer to redirect
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 10000);
+    }
+
+    // Prevent spinning if already done
+    if (localStorage.getItem("hasSpun") === "true") {
+      spinBtn.disabled = true;
+      result.innerText = "🛑 You've already spun the wheel.";
+    }
+
+    spinBtn.addEventListener("click", spinWheel);
+
+    // Prevent refresh/back spin bypass
+    window.addEventListener("beforeunload", function (e) {
+      if (localStorage.getItem("hasSpun") === "true") {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  </script>
+</body>
+</html>
