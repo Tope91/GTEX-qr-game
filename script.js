@@ -87,7 +87,7 @@
         document.addEventListener('fullscreenchange', () => {
           if (!document.fullscreenElement) {
           // Re-request fullscreen if exited
-           requestFull.call(video);
+           requestFull && requestFull.call(video);
          }
         });
       }, 2000);
@@ -121,3 +121,4 @@
         alert("❌ Incorrect password. Access denied.");
       }
     });
+
