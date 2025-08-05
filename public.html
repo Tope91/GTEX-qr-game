@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>GTEX RAFFLE</title>
-  <meta name="viewport" content="width=device-width, initial-scale=0.8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       text-align: center;
@@ -18,7 +18,7 @@
       transition: transform 4s ease-out;
     }
 
-    #spinBtn {
+    #spinBtn, #resetBtn {
       margin-top: 20px;
       padding: 12px 24px;
       font-size: 18px;
@@ -35,18 +35,8 @@
       height: 0;
       border-left: 20px solid transparent;
       border-right: 20px solid transparent;
-      border-bottom: 30px solid red;
+      border-bottom: 30px solid #e6619f;
       margin: auto;
-
-    @media (min-width: 600px) {
-      h1 {
-        font-size: 32px;
-      }
-
-      #spinBtn, #result {
-        font-size: 18px;
-      }
-     }
     }
   </style>
 </head>
@@ -56,93 +46,14 @@
   <div id="pointer"></div>
   <canvas id="wheelCanvas" width="400" height="400"></canvas>
   <button id="spinBtn">Spin</button>
+  <button id="resetBtn">Reset Spin</button>
   <div id="result"></div>
 
-  <script>
-    const names = [
-      "Win", "Lose", "Lose", "Lose", "Lose",
-      "Lose", "Win", "Lose", "Lose", "Lose",
-      "Lose", "Lose", "Win", "Lose", "Lose",
-      "Lose", "Lose", "Lose", "Win", "Lose"
-    ];
+  <!-- 🎥 Hidden full-screen video for LOSERS -->
+  <video id="loseVideo" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; object-fit:cover;" autoplay playsinline muted>
+    <source src="vid/fun.mp4" type="video/mp4">
+  </video>
 
-    const canvas = document.getElementById("wheelCanvas");
-    const ctx = canvas.getContext("2d");
-    const spinBtn = document.getElementById("spinBtn");
-    const result = document.getElementById("result");
-    const redirectUrl = "https://www.facebook.com/gensantex"; // Change this to your target URL
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 180;
-    const anglePerSlice = (2 * Math.PI) / names.length;
-    let hasSpun = false;
-
-    // Draw the pizza-style wheel
-    function drawWheel() {
-      for (let i = 0; i < names.length; i++) {
-        const startAngle = i * anglePerSlice;
-        const endAngle = startAngle + anglePerSlice;
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.fillStyle = i % 2 === 0 ? '#f39c12' : '#e67e22';
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(startAngle + anglePerSlice / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#fff";
-        ctx.font = "12px Arial";
-        ctx.fillText(names[i], radius - 10, 4);
-        ctx.restore();
-      }
-    }
-
-    drawWheel();
-
-    function spinWheel() {
-      if (localStorage.getItem("hasSpun") === "true") return;
-
-      hasSpun = true;
-      spinBtn.disabled = true;
-      localStorage.setItem("hasSpun", "true");
-
-      const randomIndex = Math.floor(Math.random() * names.length);
-      const stopAngle = 360 * 5 + (360 - (randomIndex * 360 / names.length + 360 / names.length / 2));
-      canvas.style.transform = `rotate(${stopAngle}deg)`;
-
-      setTimeout(() => {
-        result.innerText = `🎉 You: ${names[randomIndex]}!`;
-      }, 4000);
-
-      // Start 10-second timer to redirect
-      setTimeout(() => {
-        window.location.href = redirectUrl;
-      }, 10000);
-    }
-
-    // Prevent spinning if already done
-    if (localStorage.getItem("hasSpun") === "true") {
-      spinBtn.disabled = true;
-      result.innerText = "🛑 You've already spun the wheel.";
-    }
-
-    spinBtn.addEventListener("click", spinWheel);
-
-    // Prevent refresh/back spin bypass
-    window.addEventListener("beforeunload", function (e) {
-      if (localStorage.getItem("hasSpun") === "true") {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
-
 </html>
-
-
-
-
