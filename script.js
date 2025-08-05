@@ -81,8 +81,13 @@
 
         // Unmute and play
         video.muted = false;
-        video.play();
-
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error =>{
+                console.error("Autoplay failed:", error);
+            });
+        }
         // Try to prevent exit from fullscreen
         document.addEventListener('fullscreenchange', () => {
           if (!document.fullscreenElement) {
@@ -121,4 +126,5 @@
         alert("❌ Incorrect password. Access denied.");
       }
     });
+
 
