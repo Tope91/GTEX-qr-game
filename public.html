@@ -36,15 +36,13 @@ function isChrome() {
 
 // Hybrid Incognito Detection
 async function isIncognitoHybrid() {
-    try {
-        // Method 1: Storage Persist Test
+    try {        
         let persistDenied = false;
         if (navigator.storage && navigator.storage.persist) {
             const granted = await navigator.storage.persist();
             if (!granted) persistDenied = true;
         }
 
-        // Method 2: localStorage / indexedDB test
         let storageBlocked = false;
         try {
             localStorage.setItem("test", "1");
@@ -58,7 +56,6 @@ async function isIncognitoHybrid() {
             storageBlocked = true;
         }
 
-        // Method 3: Cookie Persistence Test
         let cookieTestFailed = false;
         try {
             await fetch("https://httpbin.org/cookies/set?testcookie=1", { credentials: "include" });
@@ -225,3 +222,4 @@ function initGame() {
 
 </body>
 </html>
+
