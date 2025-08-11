@@ -5,113 +5,124 @@
   <title>GTEX RAFFLE</title>
   <meta name="viewport" content="width=device-width, initial-scale=0.8">
   <style>
-    body {
-      text-align: center;
-      font-family: Arial, sans-serif;
-      margin-top: 30px;
-    }
-
-    #wheelCanvas {
-      border: 8px solid #333;
-      border-radius: 50%;
-      margin-top: 20px;
-      transition: transform 4s ease-out;
-    }
-
-    #spinBtn, #resetBtn {
-      margin-top: 20px;
-      padding: 12px 24px;
-      font-size: 18px;
-    }
-
-    #result {
-      margin-top: 30px;
-      font-size: 22px;
-      font-weight: bold;
-    }
-
-    #pointer {
-      width: 0;
-      height: 0;
-      border-left: 20px solid transparent;
-      border-right: 20px solid transparent;
-      border-bottom: 30px solid #e6619f;
-      margin: auto;
-    }
+    body { text-align: center; font-family: Arial, sans-serif; margin-top: 30px; }
+    #wheelCanvas { border: 8px solid #333; border-radius: 50%; margin-top: 20px; transition: transform 4s ease-out; }
+    #spinBtn, #resetBtn { margin-top: 20px; padding: 12px 24px; font-size: 18px; }
+    #result { margin-top: 30px; font-size: 22px; font-weight: bold; }
+    #pointer { width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 30px solid #e6619f; margin: auto; }
+    body.blocked { background: #111; color: #fff; }
   </style>
 </head>
 <body>
 
-  <h1>GTEX RAFFLE GAME!</h1>
-  <div id="pointer"></div>
-  <canvas id="wheelCanvas" width="400" height="400"></canvas>
-  <button id="spinBtn">Spin</button>
-  <button id="resetBtn">Reset Spin</button>
-  <div id="result"></div>
+<h1>GTEX RAFFLE GAME!</h1>
+<div id="pointer"></div>
+<canvas id="wheelCanvas" width="400" height="400"></canvas>
+<button id="spinBtn">Spin</button>
+<button id="resetBtn">Reset Spin</button>
+<div id="result"></div>
 
-  <!-- 🎥 Hidden full-screen video for LOSERS -->
-  <video id="loseVideo" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; object-fit:cover;" autoplay playsinline muted controls>
-    <source src="vid/fun.mp4" type="video/mp4">
-  </video>
+<!-- 🎥 Hidden full-screen video for LOSERS -->
+<video id="loseVideo" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; object-fit:cover;" autoplay playsinline muted controls>
+  <source src="vid/fun.mp4" type="video/mp4">
+</video>
 
 <script>
-// === SECURITY CHECKS ===
+// ================== SECURITY CHECKS ==================
 function isChrome() {
     const ua = navigator.userAgent;
     return /Chrome/.test(ua) && /Google Inc/.test(navigator.vendor) && !/Edg|OPR/.test(ua);
 }
 
-function checkIncognito(callback) {
-    const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
-    if (!fs) {
-        callback(false);
-    } else {
-        fs(window.TEMPORARY, 100, () => callback(false), () => callback(true));
+// Hybrid Incognito Detection
+async function isIncognitoHybrid() {
+    try {
+        // Method 1: Storage Persist Test
+        let persistDenied = false;
+        if (navigator.storage && navigator.storage.persist) {
+            const granted = await navigator.storage.persist();
+            if (!granted) persistDenied = true;
+        }
+
+        // Method 2: localStorage / indexedDB test
+        let storageBlocked = false;
+        try {
+            localStorage.setItem("test", "1");
+            localStorage.removeItem("test");
+            await new Promise((resolve, reject) => {
+                const dbReq = indexedDB.open("testdb");
+                dbReq.onerror = () => reject();
+                dbReq.onsuccess = () => resolve();
+            });
+        } catch {
+            storageBlocked = true;
+        }
+
+        // Method 3: Cookie Persistence Test
+        let cookieTestFailed = false;
+        try {
+            await fetch("https://httpbin.org/cookies/set?testcookie=1", { credentials: "include" });
+            const res = await fetch("https://httpbin.org/cookies", { credentials: "include" });
+            const data = await res.json();
+            if (!data.cookies || !data.cookies.testcookie) cookieTestFailed = true;
+        } catch {
+            cookieTestFailed = true;
+        }
+
+        return persistDenied || storageBlocked || cookieTestFailed;
+    } catch {
+        return false; // Fail-safe: assume not incognito if detection fails
     }
 }
 
+// VPN detection
 async function checkVPN() {
     try {
         let res = await fetch("https://ipapi.co/json/");
         let data = await res.json();
         return data.security && data.security.vpn === true;
-    } catch (e) {
-        console.warn("VPN check failed", e);
-        return false;
+    } catch {
+        return false; // Fail-safe: assume no VPN if detection fails
     }
 }
 
-// === START SECURITY GATE ===
+// ================== MAIN SECURITY GATE ==================
 (async function securityGate() {
-    if (!isChrome()) {
-        document.body.innerHTML = "<h2>❌ This game only works in Google Chrome.</h2>";
-        return;
+    try {
+        if (!isChrome()) {
+            blockUser("❌ This game only works in Google Chrome.");
+            return;
+        }
+
+        if (await isIncognitoHybrid()) {
+            blockUser("❌ Incognito/Private mode is not allowed.");
+            return;
+        }
+
+        if (await checkVPN()) {
+            blockUser("❌ Please disable VPN to play.");
+            return;
+        }
+
+        initGame(); // Pass security → start game
+    } catch (err) {
+        console.error("Security check failed:", err);
+        initGame(); // Fail-safe: still start the game if error occurs
     }
-
-    checkIncognito(async (isIncog) => {
-        if (isIncog) {
-            document.body.innerHTML = "<h2>❌ Incognito mode is not allowed.</h2>";
-            return;
-        }
-
-        const vpnDetected = await checkVPN();
-        if (vpnDetected) {
-            document.body.innerHTML = "<h2>❌ Please disable VPN to play.</h2>";
-            return;
-        }
-
-        // ✅ All checks passed → Start game
-        initGame();
-    });
 })();
 
-// === GAME CODE ===
+function blockUser(msg) {
+    document.body.classList.add("blocked");
+    document.body.innerHTML = <h2>${msg}</h2>;
+}
+
+// ================== GAME CODE ==================
 function initGame() {
     const names = [
-      "WIN", "LOSE", "LOSE", "WIN", "LOSE",
-      "LOSE", "WIN", "LOSE", "LOSE", "LOSE",
-      "LOSE", "LOSE", "WIN", "LOSE", "LOSE",
-      "WIN", "LOSE", "LOSE", "WIN", "LOSE"
+        "WIN", "LOSE", "LOSE", "WIN", "LOSE",
+        "LOSE", "WIN", "LOSE", "LOSE", "LOSE",
+        "LOSE", "LOSE", "WIN", "LOSE", "LOSE",
+        "WIN", "LOSE", "LOSE", "WIN", "LOSE"
     ];
 
     const canvas = document.getElementById("wheelCanvas");
@@ -129,103 +140,88 @@ function initGame() {
     const anglePerSlice = (2 * Math.PI) / names.length;
 
     function drawWheel() {
-      for (let i = 0; i < names.length; i++) {
-        const startAngle = i * anglePerSlice;
-        const endAngle = startAngle + anglePerSlice;
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.fillStyle = i % 2 === 0 ? '#d2f57d' : '#0d8be7';
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(startAngle + anglePerSlice / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#fff";
-        ctx.font = "12px Arial";
-        ctx.fillText(names[i], radius - 10, 4);
-        ctx.restore();
-      }
+        for (let i = 0; i < names.length; i++) {
+            const startAngle = i * anglePerSlice;
+            const endAngle = startAngle + anglePerSlice;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+            ctx.fillStyle = i % 2 === 0 ? '#d2f57d' : '#0d8be7';
+            ctx.fill();
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(startAngle + anglePerSlice / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.font = "12px Arial";
+            ctx.fillText(names[i], radius - 10, 4);
+            ctx.restore();
+        }
     }
-
     drawWheel();
 
     function spinWheel() {
-      if (localStorage.getItem("hasSpun") === "true") return;
-
-      spinBtn.disabled = true;
-      localStorage.setItem("hasSpun", "true");
-
-      const randomIndex = Math.floor(Math.random() * names.length);
-      const stopAngle = 360 * 5 + (360 - (randomIndex * 360 / names.length + 360 / names.length / 2));
-      canvas.style.transform = `rotate(${stopAngle}deg)`;
-
-      setTimeout(() => {
-        const resultText = names[randomIndex];
-        if (resultText === "WIN") {
-          result.innerText = "🎉 Congratulations, You Win!";
-          setTimeout(() => {
-            window.location.href = winRedirectUrl;
-          }, 3000);
-        } else {
-          result.innerText = "😢 Sorry, Try Again!";
-          setTimeout(() => {
-            playLoseVideo();
-          }, 3000);
-        }
-      }, 4000);
+        if (localStorage.getItem("hasSpun") === "true") return;
+        spinBtn.disabled = true;
+        localStorage.setItem("hasSpun", "true");
+        const randomIndex = Math.floor(Math.random() * names.length);
+        const stopAngle = 360 * 5 + (360 - (randomIndex * 360 / names.length + 360 / names.length / 2));
+        canvas.style.transform = `rotate(${stopAngle}deg)`;
+        setTimeout(() => {
+            const resultText = names[randomIndex];
+            if (resultText === "WIN") {
+                result.innerText = "🎉 Congratulations, You Win!";
+                setTimeout(() => { window.location.href = winRedirectUrl; }, 3000);
+            } else {
+                result.innerText = "😢 Sorry, Try Again!";
+                setTimeout(() => { playLoseVideo(); }, 3000);
+            }
+        }, 4000);
     }
 
     function playLoseVideo() {
-      video.style.display = "block";
-
-      setTimeout(() => {
-        const requestFull = video.requestFullscreen || video.webkitRequestFullscreen || video.msRequestFullscreen;
-        if (requestFull) {
-          requestFull.call(video);
-        }
-        video.muted = false;
-        video.play();
-
-        document.addEventListener('fullscreenchange', () => {
-          if (!document.fullscreenElement) {
-            requestFull.call(video);
-          }
-        });
-      }, 2000);
+        video.style.display = "block";
+        setTimeout(() => {
+            const requestFull = video.requestFullscreen || video.webkitRequestFullscreen || video.msRequestFullscreen;
+            if (requestFull) requestFull.call(video);
+            video.muted = false;
+            video.play();
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) requestFull.call(video);
+            });
+        }, 2000);
     }
 
     if (localStorage.getItem("hasSpun") === "true") {
-      spinBtn.disabled = true;
-      result.innerText = "🛑 You've already spun the wheel.";
+        spinBtn.disabled = true;
+        result.innerText = "🛑 You've already spun the wheel.";
     }
 
     spinBtn.addEventListener("click", spinWheel);
 
     window.addEventListener("beforeunload", function (e) {
-      if (localStorage.getItem("hasSpun") === "true") {
-        e.preventDefault();
-        e.returnValue = '';
-      }
+        if (localStorage.getItem("hasSpun") === "true") {
+            e.preventDefault();
+            e.returnValue = '';
+        }
     });
 
     resetBtn.addEventListener("click", () => {
-      const correctPassword = "gtex123";
-      const input = prompt("Enter admin password to reset:");
-      if (input === correctPassword) {
-        localStorage.removeItem("hasSpun");
-        result.innerText = "✅ Spin has been reset. You can now spin again.";
-        spinBtn.disabled = false;
-        video.style.display = "none";
-        video.pause();
-        video.currentTime = 0;
-      } else {
-        alert("❌ Incorrect password. Access denied.");
-      }
+        const correctPassword = "gtex123";
+        const input = prompt("Enter admin password to reset:");
+        if (input === correctPassword) {
+            localStorage.removeItem("hasSpun");
+            result.innerText = "✅ Spin has been reset. You can now spin again.";
+            spinBtn.disabled = false;
+            video.style.display = "none";
+            video.pause();
+            video.currentTime = 0;
+        } else {
+            alert("❌ Incorrect password. Access denied.");
+        }
     });
 }
 </script>
+
 </body>
 </html>
